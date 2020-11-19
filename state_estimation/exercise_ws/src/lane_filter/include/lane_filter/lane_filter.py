@@ -66,7 +66,7 @@ class LaneFilterHistogramKF():
         # generate all belief arrays
 
         measurement_likelihood = self.generate_measurement_likelihood(
-            segmentsArray)
+            segmentsArray)  # 23 x 30  d x phi
 
         # TODO: Parameterize the measurement likelihood as a Gaussian
 
