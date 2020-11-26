@@ -1,0 +1,55 @@
+#lane_control/lane_controller_node
+v_bar: 0.19
+k_d: -6.0
+k_theta: -5.0
+k_Id: -0.3
+k_Iphi: 0.3
+theta_thres: 0.523
+d_thres: 0.2615
+d_offset: 0.0
+
+omega_ff: 0
+
+integral_bounds:
+  d:
+    top: 0.3
+    bot: -0.3
+  phi:
+    top: 1.2
+    bot: -1.2
+
+# TODO: lane filter should publish this information
+d_resolution: 0.011
+phi_resolution: 0.051
+
+stop_line_slowdown:
+  start: 0.6
+  end: 0.15
+
+verbose: 0
+
+
+L: 1.0
+max_L: 1.0
+th_seg_dist: 0.5
+th_seg_count: 4
+th_seg_close: 2
+th_seg_far: 2
+
+th_turn_slope_low: 0.5
+th_turn_slope: 0.7
+th_turn_slope_lowest: 0.2
+
+off_lane: 0.3
+th_lane_slope: 0.75
+th_st_slope: 0.05   #0.1
+wt_slope: 1
+wt_slope_st: 2
+wt_dist: 1
+pow_slope: 8
+pow_dist: 3
+v: 0.3
+wt_omega: 0.5
+th_omega: 2.0
+min_slope: 0.005
+exp: 3.0
