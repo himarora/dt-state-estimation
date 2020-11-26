@@ -78,9 +78,9 @@ class LaneController:
         # Scale the parameters linear such that their real value is at 0.22m/s
 
         if np.abs(slope) >= 0.6:
-            # print("Turning...")
-            k_theta /= 1.5
-            k_Iphi /= 1.5
+            print("Turning...")
+            k_theta /= 3.
+            k_Iphi /= 3.
 
         omega = k_d * d_err + k_theta * phi_err + k_Id * self.d_I + k_Iphi * self.phi_I
         # print(omega)
@@ -96,7 +96,7 @@ class LaneController:
         if np.abs(slope) >= 0.6:
             v = 0.2
         else:
-            v= 0.2
+            v= 0.6
         return v, omega
 
     def compute_velocity(self, stop_line_distance):

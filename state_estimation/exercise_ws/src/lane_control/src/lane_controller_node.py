@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import numpy as np
 import rospy
-import os
 
 from duckietown.dtros import DTROS, NodeType, TopicType, DTParam, ParamType
 from duckietown_msgs.msg import Twist2DStamped, LanePose, WheelsCmdStamped, BoolStamped, FSMState, StopLineReading, SegmentList
@@ -112,7 +111,6 @@ class LaneControllerNode(DTROS):
         self.obstacle_stop_line_detected = False
         self.at_obstacle_stop_line = False
 
-        veh = os.environ['VEHICLE_NAME']
         self.current_pose_source = 'lane_filter'
 
         # Construct publishers
@@ -132,7 +130,7 @@ class LaneControllerNode(DTROS):
                                                                  self.cbAllPoses,
                                                                  "intersection_navigation",
                                                                  queue_size=1)
-        self.sub_wheels_cmd_executed = rospy.Subscriber(f"/{veh}/wheels_driver_node/wheels_cmd",
+        self.sub_wheels_cmd_executed = rospy.Subscriber("/agent/wheels_driver_node/wheels_cmd",
                                                         WheelsCmdStamped,
                                                         self.cbWheelsCmdExecuted,
                                                         queue_size=1)
@@ -146,17 +144,12 @@ class LaneControllerNode(DTROS):
                                                         queue_size=1)
 
         # self.load_params()
-        seg_topic = f"/{veh}/lane_filter_node/seglist_filtered"
+        seg_topic = "/agent/lane_filter_node/seglist_filtered"
         # topic = "/agent/ground_projection_node/lineseglist_out"
         self.sub0 = rospy.Subscriber(seg_topic,
                                      SegmentList,
                                      self.cbSegmentsGround,
                                      queue_size=1)
-
-        self.pub_tj_eq = rospy.Publisher(f"/{veh}/lane_controller_node/trajectory",
-                                             Twist2DStamped,
-                                             queue_size=1,
-                                             dt_topic_type=TopicType.PERCEPTION)
         self.pose_msg = None
         self.mode = "straight"
         self.r_y = 0
@@ -237,8 +230,6 @@ class LaneControllerNode(DTROS):
         # yl = np.array(
         #     (wl[0] if yl is None or yl[1] is None else yl[0], wl[1] + 2 * off)) if not yellow_line_detected else yl
         # assert yl is not None and wl is not None
-        if yl is None and wl is None:
-            return np.array([0., 0.])
         return (yl + wl) / 2.
 
     @staticmethod
@@ -275,7 +266,6 @@ class LaneControllerNode(DTROS):
             n_white_segs, n_yellow_segs = 0, 0
         line_detection_threshold = self.p["th_seg_count"].value
         white_detected, yellow_detected = n_white_segs > line_detection_threshold, n_yellow_segs > line_detection_threshold
-        # print(f"Based on n.segs: {white_detected}, {yellow_detected}")
         # If none of the lines are detected, assume that the trajectory has not changed
         gr_f, wr_f, wts_f = False, False, False
         if not white_detected and not yellow_detected:
@@ -287,14 +277,14 @@ class LaneControllerNode(DTROS):
                                                         self.p["th_seg_far"].value) if white_detected else (None, None)
             y_eq, y_f = LaneControllerNode.get_equation(yellow_segments, self.p["th_seg_close"].value,
                                                         self.p["th_seg_far"].value) if yellow_detected else (None, None)
-            # print(f"Initial eq using segs: {y_eq}{w_eq}")
+
             # If taking left turn and only yellow is detected
             prev_m = self.state[2][0]
             if y_eq is not None and w_eq is None and np.abs(prev_m) > self.p["th_turn_slope"].value and prev_m >= 0:
                 y_eq = None
             elif w_eq is not None and y_eq is None and np.abs(prev_m) > self.p["th_turn_slope"].value and prev_m < 0:
                 w_eq = None
-            # w_eq = None
+            w_eq = None
             if w_eq is None and y_eq is None:
                 # if w_eq is None and y_eq is None:
                 w_eq, y_eq, tj_eq, w_f, y_f = self.state
@@ -324,11 +314,7 @@ class LaneControllerNode(DTROS):
         self.r_y = r[1] if r is not None else None
         w_eq = np.array([0, 0]) if w_eq is None else w_eq
         y_eq = np.array([0, 0]) if y_eq is None else y_eq
-        print(f"Y:{yellow_detected}{y_eq} W:{white_detected}{w_eq} Gr:{gr_f} Wr:{wr_f} Wts_f:{wts_f}")
-        tj_msg = Twist2DStamped()
-        tj_msg.v = tj_eq[0]
-        tj_msg.omega = tj_eq[1]
-        self.publishTj(tj_msg)
+        print(f"Y:{yellow_detected}{y_eq} W:{white_detected}{w_eq}")    # Gr:{gr_f} Wr:{wr_f} Wts_f:{wts_f}")
         # print(y_eq[0] if y_eq is not None else "None", w_eq[0] if w_eq is not None else "None")
         # if w_eq is not None and y_eq is not None:
         #     print(y_eq, tj_eq, w_eq)
@@ -414,9 +400,6 @@ class LaneControllerNode(DTROS):
         # print("cb", msg_wheels_cmd.vel_left, msg_wheels_cmd.vel_right)
         self.wheels_cmd_executed = msg_wheels_cmd
 
-    def publishTj(self, tj_msg):
-        self.pub_tj_eq.publish(tj_msg)
-
     def publishCmd(self, car_cmd_msg):
         """Publishes a car command message.
 
@@ -449,7 +432,7 @@ class LaneControllerNode(DTROS):
 
             # We cap the error if it grows too large
             if np.abs(d_err) > self.params['~d_thres']:
-                self.log("d_err too large, thresholding it!", 'warn')
+                self.log("d_err too large, thresholding it!", 'error')
                 d_err = np.sign(d_err) * self.params['~d_thres']
 
 

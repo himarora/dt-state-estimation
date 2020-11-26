@@ -65,7 +65,6 @@ class LaneFilterHistogramKF():
         self.R = np.array([[0.1, 0.001], [0.001, 0.1]])
         print(f"Q:{self.Q}")
         print(f"R:{self.R}")
-        self.tj = np.array([0., 0.])
 
     @staticmethod
     def f(x_k_1, u_k, dt, r=0.0318, tpr=135, l=0.1):
@@ -97,11 +96,10 @@ class LaneFilterHistogramKF():
         # print(f"Pr: {x_k_[0]:.2f} {x_k_[1]:.2f}")
 
     def update(self, segments):
-        # print(f"Lane Filter Update: {self.tj}")
         # prepare the segments for each belief array
         segmentsArray = self.prepareSegments(segments)
         # generate all belief arrays
-        # segmentsArray = self.filterSegments(segmentsArray, self.tj)
+
         measurement_likelihood = self.generate_measurement_likelihood(
             segmentsArray)  # 23 x 30  d x phi      # None if len(segmentsArray = 0)
 
@@ -223,38 +221,6 @@ class LaneFilterHistogramKF():
         x_c = (segment.points[0].x + segment.points[1].x) / 2
         y_c = (segment.points[0].y + segment.points[1].y) / 2
         return sqrt(x_c ** 2 + y_c ** 2)
-
-    def filterSegments(self, segments, eq):
-        white_segments = []
-        yellow_segments = []
-        for i, segment in enumerate(segments):
-            to_append = white_segments if segment.color == segment.WHITE else yellow_segments
-            to_append.append(i)
-
-        idx = []
-        if np.abs(eq[0]) is not None:
-            # print(f"Detected white segments: {len(white_segments)}")
-            for i in white_segments:
-                points = segments[i].points
-                point = (
-                (points[0].x + points[1].x) * 0.5, (points[0].y + points[1].y) * 0.5)
-                if point[1] > 0 and point[0] < 0.2:
-                    idx.append(i)
-
-        if np.abs(eq[0]) is not None:
-            # print(f"Detected white segments: {len(white_segments)}")
-            for i in yellow_segments:
-                points = segments[i].points
-                point = (
-                (points[0].x + points[1].x) * 0.5, (points[0].y + points[1].y) * 0.5)
-                if point[1] < 0:
-                    idx.append(i)
-
-        if len(idx) > 0:
-            new_segments = [seg for i, seg in enumerate(segments) if i not in idx]
-            print(f"Filtered {len(idx)} segments")
-            segments = new_segments
-        return segments
 
     # prepare the segments for the creation of the belief arrays
     def prepareSegments(self, segments):

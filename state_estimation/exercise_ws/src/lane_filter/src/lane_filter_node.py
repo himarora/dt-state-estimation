@@ -6,7 +6,7 @@ import numpy as np
 import rospy
 from cv_bridge import CvBridge
 from duckietown.dtros import DTROS, NodeType, TopicType
-from duckietown_msgs.msg import SegmentList, LanePose, WheelEncoderStamped, Twist2DStamped
+from duckietown_msgs.msg import SegmentList, LanePose, WheelEncoderStamped
 from lane_filter import LaneFilterHistogramKF
 from sensor_msgs.msg import Image
 
@@ -45,7 +45,7 @@ class LaneFilterNode(DTROS):
         )
 
         veh = os.getenv("VEHICLE_NAME")
-        print(f"Vehicle Name: {veh}")
+
         self._filter = rospy.get_param('~lane_filter_histogram_kf_configuration', None)
         self._debug = rospy.get_param('~debug', False)
         self._predict_freq = rospy.get_param('~predict_frequency', 30.0)
@@ -66,7 +66,6 @@ class LaneFilterNode(DTROS):
         # lane_pose_topic = f"/{veh}/lane_filter_node/lane_pose"
         # ml_topic = f"/{veh}/lane_filter_node/measurement_likelihood_img"
         # filt_seg_topic = f"/{veh}/lane_filter_node/seglist_filtered"
-        # tj_topic = f"/{veh}/lane_controller_node/trajectory"
 
         segments_topic = "~segment_list"
         let_topic = "~left_wheel_encoder_node/tick"
@@ -74,7 +73,6 @@ class LaneFilterNode(DTROS):
         lane_pose_topic = "~lane_pose"
         ml_topic = "~measurement_likelihood_img"
         filt_seg_topic = "~seglist_filtered"
-        tj_topic = f"/{veh}/lane_controller_node/trajectory"
 
         self.sub_segment_list = rospy.Subscriber(segments_topic,
                                                  SegmentList,
@@ -93,11 +91,6 @@ class LaneFilterNode(DTROS):
                                                   self.cbProcessRightEncoder,
                                                   queue_size=1)
 
-        self.sub_trajectory = rospy.Subscriber(tj_topic,
-                                               Twist2DStamped,
-                                               self.cbProcessTj,
-                                               queue_size=1)
-
         # Publishers
         self.pub_lane_pose = rospy.Publisher(lane_pose_topic,
                                              LanePose,
@@ -115,21 +108,15 @@ class LaneFilterNode(DTROS):
                                                     dt_topic_type=TopicType.DEBUG)
 
         self.right_encoder_ticks = 0
-        self.right_encoder_seq = 0
         self.left_encoder_ticks = 0
-        self.left_encoder_seq = 0
 
         # Go to max 18-19 on full speed at v_max 1
         self.right_encoder_ticks_delta = 0
         self.left_encoder_ticks_delta = 0
         # Set up a timer for prediction (if we got encoder data) since that data can come very quickly
         rospy.Timer(rospy.Duration(1 / self._predict_freq), self.cbPredict)
-        self.tj = np.array([0., 0.])
-        self.bridge = CvBridge()
 
-    def cbProcessTj(self, tj_msg):
-        self.tj[0] = tj_msg.v
-        self.tj[1] = tj_msg.omega
+        self.bridge = CvBridge()
 
     # These set delta
     def cbProcessLeftEncoder(self, left_encoder_msg):
@@ -137,14 +124,12 @@ class LaneFilterNode(DTROS):
             self.filter.encoder_resolution = left_encoder_msg.resolution
             self.filter.initialized = True
         self.left_encoder_ticks_delta = left_encoder_msg.data - self.left_encoder_ticks
-        self.left_encoder_seq = left_encoder_msg.header.seq
 
     def cbProcessRightEncoder(self, right_encoder_msg):
         if not self.filter.initialized:
             self.filter.encoder_resolution = right_encoder_msg.resolution
             self.filter.initialized = True
         self.right_encoder_ticks_delta = right_encoder_msg.data - self.right_encoder_ticks
-        self.right_encoder_seq = right_encoder_msg.header.seq
 
     # These are called at certain intervals. Updates belief given current delta. Records total ticks. Calls publish estimate.
     def cbPredict(self, event):
@@ -156,7 +141,6 @@ class LaneFilterNode(DTROS):
         if self.right_encoder_ticks_delta == 0 and self.left_encoder_ticks_delta == 0:
             return
 
-        # print(f"LES:{self.left_encoder_seq} LET:{self.left_encoder_ticks} RES:{self.right_encoder_seq} RET:{self.right_encoder_ticks}")
         self.filter.predict(dt, self.left_encoder_ticks_delta, self.right_encoder_ticks_delta)
         self.left_encoder_ticks += self.left_encoder_ticks_delta
         self.right_encoder_ticks += self.right_encoder_ticks_delta
@@ -181,7 +165,6 @@ class LaneFilterNode(DTROS):
         # Get actual timestamp for latency measurement
         timestamp_before_processing = rospy.Time.now()
 
-        self.filter.tj = self.tj
         # Step 2: update
         self.filter.update(segment_list_msg.segments)
 
